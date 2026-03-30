@@ -182,3 +182,56 @@ OTA akisi su sekildedir:
 3. Yeni surum varsa `url` alanindaki firmware indirilir
 4. Firmware Validation Hash ile dogrulanir
 5. Dogrulama basariliysa OTA uygulanir
+
+
+
+### Test
+
+$idfPath = $env:IDF_PATH
+
+if ([string]::IsNullOrWhiteSpace($idfPath)) {
+  $idfSearchRoots = @(
+    "$env:USERPROFILE\esp",
+    "C:\esp"
+  )
+
+  foreach ($root in $idfSearchRoots) {
+    if (Test-Path $root) {
+      $idfPyScript = Get-ChildItem $root -Recurse -Filter idf.py -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -like "*\tools\idf.py" } |
+        Select-Object -First 1
+
+      if ($idfPyScript) {
+        $idfPath = Split-Path (Split-Path $idfPyScript.FullName -Parent) -Parent
+        break
+      }
+    }
+  }
+}
+
+$idfPySearchRoots = @(
+  "$env:USERPROFILE\.espressif\python_env",
+  "C:\Espressif\tools\python"
+)
+
+$idfPy = $null
+foreach ($root in $idfPySearchRoots) {
+  if (Test-Path $root) {
+    $idfPy = Get-ChildItem $root -Recurse -Filter python.exe -ErrorAction SilentlyContinue |
+      Where-Object { $_.FullName -like "*\Scripts\python.exe" } |
+      Sort-Object LastWriteTime -Descending |
+      Select-Object -ExpandProperty FullName -First 1
+
+    if ($idfPy) { break }
+  }
+}
+
+if ([string]::IsNullOrWhiteSpace($idfPath)) {
+  throw "ESP-IDF bulunamadi. IDF_PATH ayarli degil ve idf.py tespit edilemedi."
+}
+
+if ([string]::IsNullOrWhiteSpace($idfPy)) {
+  throw "ESP-IDF Python ortami bulunamadi."
+}
+
+& $idfPy -m esptool image-info .\firmware.bin
